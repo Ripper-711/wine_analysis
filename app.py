@@ -53,15 +53,15 @@ st.markdown(animated_background, unsafe_allow_html=True)
 # Page title with animation
 st.markdown("""
 <div style="text-align: center;">
-    <h1 style="font-size: 3.5rem; margin-bottom: 0;">🍷 Wine Quality Analyzer</h1>
+    <h1 style="font-size: 3.5rem; margin-bottom: 0;">🍷 WineWise</h1>
     <p style="font-size: 1.3rem; font-style: italic; margin-top: 0;">Uncorking the Science of Fine Wine</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Sidebar with richer content
 st.sidebar.markdown("""
-# 🍇 Wine Science Explorer
-*Discover what makes a great wine!*
+# 🍇 Wine Quality Analyzer
+Discover what makes a great wine!
 
 This app uses machine learning to analyze wine based on its chemical properties.
 
@@ -71,9 +71,9 @@ This app uses machine learning to analyze wine based on its chemical properties.
 3. Get detailed insights and recommendations
 
 ### Key Wine Parameters:
-- *Alcohol*: Higher levels often lead to better quality
-- *Acidity*: Balances flavors and preserves wine
-- *Sulfur Dioxide*: Prevents oxidation and microbial growth
+- Alcohol: Higher levels often lead to better quality
+- Acidity: Balances flavors and preserves wine
+- Sulfur Dioxide: Prevents oxidation and microbial growth
 
 Swirl, smell, sip, and now... science!
 """)
@@ -84,65 +84,113 @@ try:
 except:
     # Create mock data if file is not found
     st.sidebar.warning("Using sample data for demonstration")
+    # Create more realistic sample data with quality as a categorical variable
+    np.random.seed(42)  # For reproducible results
+    
+    # Generate sample data for white and red wines
+    n_samples = 1000
+    wine_types = np.random.choice([0, 1], size=n_samples)  # 0 for red, 1 for white
+    
+    # Different distributions for red and white wines
+    alcohol_values = []
+    volatile_acidity_values = []
+    quality_values = []
+    
+    for wine_type in wine_types:
+        if wine_type == 0:  # Red wine
+            # Red wines tend to have higher alcohol and volatile acidity
+            alcohol = np.random.normal(11.5, 1.0)
+            volatile_acidity = np.random.normal(0.6, 0.15)
+        else:  # White wine
+            # White wines tend to have lower alcohol and volatile acidity
+            alcohol = np.random.normal(10.2, 0.8)
+            volatile_acidity = np.random.normal(0.3, 0.1)
+        
+        # Determine quality based on alcohol and volatile acidity
+        # Higher alcohol generally good, higher volatile acidity generally bad
+        quality_score = 5 + (alcohol - 10) * 0.8 - (volatile_acidity - 0.5) * 3
+        
+        if quality_score < 5:
+            quality = 'poor'
+        elif quality_score <= 7:
+            quality = 'average'
+        else:
+            quality = 'good'
+            
+        alcohol_values.append(alcohol)
+        volatile_acidity_values.append(volatile_acidity)
+        quality_values.append(quality)
+    
     wine_data = pd.DataFrame({
-        'type': np.random.choice([0, 1], size=1000),
-        'fixed acidity': np.random.normal(8.32, 1.7, 1000),
-        'volatile acidity': np.random.normal(0.53, 0.18, 1000),
-        'citric acid': np.random.normal(0.27, 0.2, 1000),
-        'residual sugar': np.random.normal(2.5, 1.4, 1000),
-        'chlorides': np.random.normal(0.088, 0.05, 1000),
-        'free sulfur dioxide': np.random.normal(15.87, 10.5, 1000),
-        'total sulfur dioxide': np.random.normal(46.47, 32.9, 1000),
-        'density': np.random.normal(0.9967, 0.003, 1000),
-        'pH': np.random.normal(3.31, 0.16, 1000),
-        'sulphates': np.random.normal(0.66, 0.17, 1000),
-        'alcohol': np.random.normal(10.42, 1.07, 1000),
-        'quality': np.random.choice(['poor', 'average', 'good'], size=1000, p=[0.2, 0.5, 0.3]),
+        'type': wine_types,
+        'fixed acidity': np.random.normal(8.32, 1.7, n_samples),
+        'volatile acidity': volatile_acidity_values,
+        'citric acid': np.random.normal(0.27, 0.2, n_samples),
+        'residual sugar': np.random.normal(2.5, 1.4, n_samples),
+        'chlorides': np.random.normal(0.088, 0.05, n_samples),
+        'free sulfur dioxide': np.random.normal(15.87, 10.5, n_samples),
+        'total sulfur dioxide': np.random.normal(46.47, 32.9, n_samples),
+        'density': np.random.normal(0.9967, 0.003, n_samples),
+        'pH': np.random.normal(3.31, 0.16, n_samples),
+        'sulphates': np.random.normal(0.66, 0.17, n_samples),
+        'alcohol': alcohol_values,
+        'quality': quality_values,
     })
 
 # Try to load model and scaler
 try:
-    model = joblib.load("wine_quality_model_final_3.pkl")
-    scaler = joblib.load("scaler_final_3.pkl")
+    model = joblib.load("wine_rating.pkl")
+    scaler = joblib.load("scaler_rating.pkl")
     model_loaded = True
 except:
     # Create mock prediction function if model is not found
     st.sidebar.warning("Using simulation mode - model not found")
     model_loaded = False
 
-def calculate_quality_score(input_data):
-    """Calculate wine quality score on a scale of 0-10"""
+def calculate_quality_score(input_data, wine_type_str):
+    """Calculate wine quality score on a scale of 0-10 with different parameters for red and white wine"""
     # Base score from 0-10
     score = 5.0  # Start at middle
     
-    # Key positive factors
-    score += (input_data['alcohol'].values[0] - 10) * 0.5  # Alcohol bonus
+    # Common factors for both wine types
     score -= (input_data['volatile acidity'].values[0] - 0.5) * 2  # Acidity penalty
-    score += (input_data['sulphates'].values[0] - 0.5) * 1.5  # Sulphates bonus
     
-    # Additional factors
-    if input_data['citric acid'].values[0] > 0.3:
-        score += 0.5
+    # Wine type specific adjustments
+    if wine_type_str == "Red":
+        # Red wine specific factors
+        score += (input_data['alcohol'].values[0] - 10) * 0.6  # Alcohol bonus (slightly less impact for red)
+        score += (input_data['sulphates'].values[0] - 0.5) * 2.0  # Sulphates bonus (more important for red)
+        
+        if input_data['total sulfur dioxide'].values[0] > 150:
+            score -= 1.0  # High SO2 is more negative for red wines
+            
+        if input_data['fixed acidity'].values[0] > 8.5:
+            score += 0.5  # Higher fixed acidity can be good for red wines
+            
+    else:  # White wine
+        # White wine specific factors
+        score += (input_data['alcohol'].values[0] - 10) * 0.4  # Alcohol bonus (less impact for white)
+        score += (input_data['sulphates'].values[0] - 0.5) * 1.0  # Sulphates bonus (less important for white)
+        
+        if input_data['residual sugar'].values[0] > 3.0:
+            score += 0.7  # Sweetness can be positive for white wines
+            
+        if input_data['citric acid'].values[0] > 0.3:
+            score += 0.8  # Citric acid more important for white wines
+    
+    # Additional common factors
     if 3.0 <= input_data['pH'].values[0] <= 3.4:
         score += 0.5
-    
-    # Type-specific adjustments
-    if input_data['type'].values[0] == 0:  # Red wine
-        if input_data['total sulfur dioxide'].values[0] < 50:
-            score += 0.5
-    else:  # White wine
-        if input_data['total sulfur dioxide'].values[0] < 150:
-            score += 0.5
     
     # Ensure score is within 0-10 range
     return max(0, min(10, score))
 
-def predict_quality(input_data):
+def predict_quality(input_data, wine_type_str):
     """Predict wine quality category and score"""
-    # Calculate quality score
-    quality_score = calculate_quality_score(input_data)
+    # Calculate quality score with wine type consideration
+    quality_score = calculate_quality_score(input_data, wine_type_str)
     
-    # Apply new classification thresholds
+    # Apply classification thresholds
     if quality_score < 5:
         return 'poor', quality_score
     elif quality_score <= 7:
@@ -159,16 +207,16 @@ def user_input_features():
         st.markdown("""
         ### Wine Property Guide:
         
-        - *Fixed Acidity*: Primarily tartaric acid, gives wine its tart taste
-        - *Volatile Acidity*: Excessive amounts can lead to unpleasant vinegar taste
-        - *Citric Acid*: Adds 'freshness' and flavor to wines
-        - *Residual Sugar*: Amount of sugar remaining after fermentation
-        - *Chlorides*: Amount of salt in the wine
-        - *Sulfur Dioxide*: Prevents microbial growth and oxidation
-        - *Density*: How close the wine is to water's density
-        - *pH*: Describes how acidic or basic the wine is (0-14)
-        - *Sulphates*: Additive that contributes to SO2 levels, antimicrobial
-        - *Alcohol*: Percentage of alcohol in the wine
+        - Fixed Acidity: Primarily tartaric acid, gives wine its tart taste
+        - Volatile Acidity: Excessive amounts can lead to unpleasant vinegar taste
+        - Citric Acid: Adds 'freshness' and flavor to wines
+        - Residual Sugar: Amount of sugar remaining after fermentation
+        - Chlorides: Amount of salt in the wine
+        - Sulfur Dioxide: Prevents microbial growth and oxidation
+        - Density: How close the wine is to water's density
+        - pH: Describes how acidic or basic the wine is (0-14)
+        - Sulphates: Additive that contributes to SO2 levels, antimicrobial
+        - Alcohol: Percentage of alcohol in the wine
         
         The perfect balance of these properties creates outstanding wine!
         """)
@@ -289,8 +337,8 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         import time
         time.sleep(1)  # Simulate processing
         
-        # Get prediction using the new function
-        prediction, quality_out_of_10 = predict_quality(input_df)
+        # Get prediction using the fixed function that considers wine type
+        prediction, quality_out_of_10 = predict_quality(input_df, wine_type)
     
     # Convert prediction to status and description based on NEW ranges
     if prediction == 'good':  # > 7
@@ -424,53 +472,80 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         st.plotly_chart(fig)
     
     with col2:
-        # Alcohol vs. Quality scatter plot
+        # Alcohol vs. Quality scatter plot - FIXED
         st.subheader("Alcohol vs. Quality Relationship")
         
-        # Create mock data if needed
-        wine_sample = wine_data.sample(200) if len(wine_data) > 200 else wine_data
-        
-        # FIX: Handle missing or NaN values in the quality mapping 
-        # Make sure wine_sample['quality'] contains only the expected values
-        wine_sample = wine_sample[wine_sample['quality'].isin(['poor', 'average', 'good'])]
-        
-        # Map quality to numeric for size
-        size_map = {'poor': 5, 'average': 10, 'good': 15}
-        wine_sample['size'] = wine_sample['quality'].map(size_map)
-        
-        # FIX: Now remove any rows with NaN values in the relevant columns
-        wine_sample = wine_sample.dropna(subset=['alcohol', 'volatile acidity', 'quality', 'size'])
-        
-        # Plot with highlighted current wine
-        fig = px.scatter(
-            wine_sample, 
-            x='alcohol', 
-            y='volatile acidity',
-            color='quality',
-            size='size',
-            labels={'alcohol': 'Alcohol (%)', 'volatile acidity': 'Volatile Acidity'},
-            title='Wine Quality Distribution by Key Factors',
-            color_discrete_map={'good': 'green', 'average': 'gold', 'poor': 'red'},
-            height=400
-        )
-        
-        # Add point for current wine
-        fig.add_trace(
-            go.Scatter(
-                x=[input_df['alcohol'].values[0]],
-                y=[input_df['volatile acidity'].values[0]],
-                mode='markers',
-                marker=dict(
-                    color='white',
-                    size=20,
-                    line=dict(width=2, color='black')
-                ),
-                name='Your Wine'
+        # Create and handle sample data for the plot - FIXED CODE HERE
+        # Create a scatterplot showing alcohol vs. volatile acidity colored by quality
+        if 'quality' in wine_data.columns:
+            # Ensure quality values are valid categories
+            if isinstance(wine_data['quality'].iloc[0], str):
+                # If quality is already categorical strings
+                valid_qualities = ['poor', 'average', 'good']
+                filtered_data = wine_data[wine_data['quality'].isin(valid_qualities)]
+            else:
+                # If quality is numeric, convert to categories
+                wine_data['quality_category'] = pd.cut(
+                    wine_data['quality'],
+                    bins=[0, 5, 7, 10],
+                    labels=['poor', 'average', 'good']
+                )
+                filtered_data = wine_data.copy()
+                filtered_data['quality'] = filtered_data['quality_category']
+            
+            # Sample data for better visualization (not too many points)
+            sample_size = min(300, len(filtered_data))
+            plot_data = filtered_data.sample(sample_size) if len(filtered_data) > sample_size else filtered_data
+            
+            # Create color mapping
+            color_discrete_map = {'good': 'green', 'average': 'gold', 'poor': 'red'}
+            
+            # Create size mapping for plot
+            plot_data['marker_size'] = plot_data['quality'].map({'poor': 5, 'average': 10, 'good': 15})
+            
+            # Create the scatter plot
+            fig = px.scatter(
+                plot_data,
+                x='alcohol',
+                y='volatile acidity',
+                color='quality',
+                size='marker_size',
+                size_max=15,
+                opacity=0.7,
+                color_discrete_map=color_discrete_map,
+                labels={'alcohol': 'Alcohol (%)', 'volatile acidity': 'Volatile Acidity'},
+                title='Wine Quality by Alcohol & Acidity',
+                height=400
             )
-        )
-        
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
-        st.plotly_chart(fig)
+            
+            # Add the current wine as a highlighted point
+            fig.add_trace(
+                go.Scatter(
+                    x=[input_df['alcohol'].values[0]],
+                    y=[input_df['volatile acidity'].values[0]],
+                    mode='markers',
+                    marker=dict(
+                        color='white',
+                        size=20,
+                        line=dict(width=2, color='black')
+                    ),
+                    name='Your Wine'
+                )
+            )
+            
+            # Update layout for dark theme
+            fig.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='white',
+                legend_title_text='Quality',
+                xaxis=dict(gridcolor='rgba(255,255,255,0.2)'),
+                yaxis=dict(gridcolor='rgba(255,255,255,0.2)')
+            )
+            
+            st.plotly_chart(fig)
+        else:
+            st.error("Could not create scatter plot due to missing quality data")
 
     # Wine pairing suggestions based on profile
     st.header("🍽 Food Pairing Suggestions")
@@ -531,9 +606,9 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
             glass = "A narrower, tulip-shaped glass to preserve aromas and maintain temperature"
             aerate = "Serve chilled directly from the refrigerator"
         
-        st.markdown(f"- 🌡 *Serving Temperature*: {temp}")
-        st.markdown(f"- 🥂 *Glass Type*: {glass}")
-        st.markdown(f"- ⏱ *Aeration*: {aerate}")
+        st.markdown(f"- 🌡 Serving Temperature: {temp}")
+        st.markdown(f"- 🥂 Glass Type: {glass}")
+        st.markdown(f"- ⏱ Aeration: {aerate}")
 
     # Wine story - add some fascinating context
     st.header("🍷 Wine Alchemy: The Science Behind Your Glass")
@@ -565,28 +640,23 @@ if st.button("🔍 Analyze Wine Quality", key="analyze_button"):
         else:
             style = "balanced, versatile"
             region = "Coastal regions with moderate climates"
-    
-    # Tell the wine's story
-    st.markdown(f"""
-    The chemical profile of this {wine_type.lower()} wine suggests a {style} style, 
-    reminiscent of wines from {region}. 
-    
-    #### The Alchemy in Your Glass
-    
-    Wine is truly a living chemistry experiment. As the grape juice ferments, yeasts convert 
-    sugar into alcohol and carbon dioxide while creating hundreds of aromatic compounds. 
-    The {input_df['fixed acidity'].values[0]:.1f} g/L of fixed acidity works with the pH of {input_df['pH'].values[0]:.1f} 
-    to create the wine's structural backbone.
-    
-    Meanwhile, the {input_df['alcohol'].values[0]:.1f}% alcohol content provides body and warmth, 
-    while carrying aromatic compounds to your nose. The balance of {input_df['sulphates'].values[0]:.2f} g/L sulphates 
-    helps protect the wine while it develops its character.
-    
-    #### From Vineyard to Glass
-    
-    This chemical fingerprint tells the story of the growing season - from sunshine hours to 
-    rainfall patterns - and the winemaker's craft in guiding fermentation and aging. Each 
-    sip is a time capsule of that specific vintage and place.
-    
-    Wine is where science and art blend perfectly to create something greater than the sum of its parts.
-    """)
+ # Example values (you should replace these with logic based on your model or input)
+style = "crisp and aromatic"
+wine_type = "White"
+region = "Alsace"
+
+# Then your markdown block works:
+st.markdown(f"""
+The chemical profile of this {wine_type.lower()} wine suggests a {style} style, 
+reminiscent of wines from {region}. 
+
+#### The Alchemy in Your Glass
+
+Wine is truly a living chemistry experiment. As the grape juice ferments, yeasts convert 
+sugar into alcohol and carbon dioxide while creating hundreds of aromatic compounds. 
+The {input_df['fixed acidity'].values[0]:.1f} g/L of fixed acidity works with the pH of {input_df['pH'].values[0]:.1f} 
+to create the wine's structural backbone.
+
+Meanwhile, the {input_df['alcohol'].values[0]:.1f}% alcohol content provides body and warmth.
+""")
+
